@@ -1,42 +1,55 @@
 const instance_skel = require('../../instance_skel')
-const cfg = require('./config');
+const config = require('./config');
 const actions = require('./actions');
+var feedback = require('./feedback');
+var presets       = require('./presets');
 var osc = require('osc');
 var debug;
 var log;
 const remotePort = 57125;
 const localPort = 57124;
+const stateDesc = {
+	paused: "Paused",
+	expired: "Expired",
+	running: "Running"
+}
 
 class instance extends instance_skel {
 	constructor(system, id, config) {
-		super(system, id, config)
-		//console.log(config);
+		super(system, id, config);
+		Object.assign(this, {...actions,...feedback,...presets});
+		this.feedbackstate = {
+			colour: 'green',
+			state: 'STOPPED',
+			mode: 'TIMER',
+		};
+		this.actions();
+	}
 
-		// Object.assign(this, {
-		// 	...actions,
-		// })
-
-		//return this
+	actions(system) {
+		this.setActions(this.getActions());
 	}
 
 	config_fields() {
-		return cfg.fields;
+		return config.fields;
 	}
 
 	destroy() {
 		this.debug('destroy', this.id);
-		this.status(this.STATUS_UNKNOWN, "Disabled")
+		this.status(this.STATUS_UNKNOWN, "Disabled");
+		this.oscListener.destroy();
 	}
 
 	init() {
 		console.log('OctoCue init');
-		this.setActions(actions.config);
 		debug = this.debug;
 		log = this.log;
-		this.log('debug', "OctoCue Init");
+		this.log('debug', "OctoCue module initiated");
 		this.status(this.STATE_OK);
 		//console.log(this.config);
-		this.init_osc();
+		this.initOsc();
+		this.initFeedbacks();
+		this.initVariables();
 
 	}
 
@@ -65,7 +78,7 @@ class instance extends instance_skel {
 		this.system.emit('osc_send', host, remotePort, address, args);
 	}
 
-	init_osc() {
+	initOsc() {
 
 		if (this.connecting) {
 			return;
@@ -105,23 +118,113 @@ class instance extends instance_skel {
 
 			this.oscListener.on("ready", () => {
 				this.connecting = false;
-				this.log('info', "Connected to DiGiCo:" + this.config.host);
+				this.log('info', `Listening for OctoCue OSC messages on ${localPort}`);
+				this.sendOsc('/octocue/subscribe/clock',{type:'i',value: localPort});
 			});
 
-			this.oscListener.on("message", function (oscMsg, timeTag, info) {
-				//console.log("An OSC message just arrived!", oscMsg);
+			this.oscListener.on("message",  (oscMsg, timeTag, info) => {
+				console.log("An OSC message just arrived!", oscMsg);
 				if (oscMsg.address == '/octocue/clock/status') {
 					this.hours = oscMsg.args[0].value;
 					this.minutes = oscMsg.args[1].value;
 					this.seconds = oscMsg.args[2].value;
 					this.colour = oscMsg.args[3].value;
-					console.log(`Clock: ${this.hours}:${this.minutes}:${this.seconds} ${this.colour}`);
+				
+					let h = this.formatTime(this.hours);
+					let m = this.formatTime(this.minutes);
+					let s = this.formatTime(this.seconds);
+					let negSign = oscMsg.args[3].value ? '- ' : '';
+			
+					this.setVariable('time_h', this.hours);
+					this.setVariable('time_m', m);
+					this.setVariable('time_s', s);
+					this.setVariable('time_hms', `${negSign}${h}:${m}:${s}`);
+					this.setVariable('time_hm', `${negSign}${h}:${m}`);
+					this.setVariable('time_ms', `${negSign}${m}:${s}`);
+					this.setVariable('negSign', negSign);
+					this.setVariable('state', stateDesc[oscMsg.args[5].value]);
+					this.setVariable('visible', oscMsg.args[6].value);
+
+					this.feedbackstate.colour = oscMsg.args[4].value
+					this.checkFeedbacks('state_colour');
+					
 				}
 
 
 			});
 		}
 
+	}
+
+	formatTime(t) {
+		return (t.toString()).padStart(2,'0');
+	}
+
+	initFeedbacks() {
+		// feedbacks
+		var feedbacks = this.getFeedbacks();
+
+		this.setFeedbackDefinitions(feedbacks);
+	}
+
+	initVariables() {
+
+		var variables = [
+			{
+				label: 'State of timer (Running, Paused, Expired)',
+				name: 'state'
+			},
+			{
+				label: 'Display time (hh:mm:ss)',
+				name: 'time_hms'
+			},
+			{
+				label: 'Display time (hh:mm)',
+				name: 'time_hm'
+			},
+			{
+				label: 'Display time (mm:ss)',
+				name: 'time_ms'
+			},
+			{
+				label: 'Negative time symbol',
+				name: 'negSign'
+			},
+			{
+				label: 'Display time (hours)',
+				name: 'time_h'
+			},
+			{
+				label: 'Display time (minutes)',
+				name: 'time_m'
+			},
+			{
+				label: 'Display time (seconds)',
+				name: 'time_s'
+			},
+		];
+		this.setVariableDefinitions(variables);
+		this.setVariable("state", "Paused")
+		this.setVariable('time_hms', '00:00:00');
+		this.setVariable('time_hm', '00:00');
+		this.setVariable('time_ms', '00:00');
+		this.setVariable('negSign', ' ');
+		this.setVariable('time_h', '00');
+		this.setVariable('time_m', '00');
+		this.setVariable('time_s', '00');
+
+		
+	}
+
+	updateTime() {
+		var info = this.feedbackstate.time.split(':');
+
+		this.setVariable('time', this.feedbackstate.time);
+		this.setVariable('time_hm', info[0] + ':' + info[1]);
+
+		this.setVariable('time_h', info[0]);
+		this.setVariable('time_m', info[1]);
+		this.setVariable('time_s', info[2]);
 	}
 }
 

@@ -1,7 +1,18 @@
 
-let actions = {
-    config: {
-        'control': {
+module.exports = {
+
+    /**
+    * Get the available actions.
+    *
+    * @returns {Object[]} the available actions
+    * @access public
+    * @since 1.1.0
+    */
+
+
+    getActions() {
+        var actions = {};
+        actions['control'] = {
             label: 'Clock start/pause/reset',
             options: [
                 {
@@ -17,9 +28,8 @@ let actions = {
                     required: true,
                 },
             ],
-        },
-
-        'visibility': {
+        };
+        actions['visibility'] = {
             label: 'Clock visibility',
             options: [
                 {
@@ -34,9 +44,8 @@ let actions = {
                     required: true,
                 },
             ],
-        },
-
-        'jog': {
+        };
+        actions['jog'] = {
             label: 'Jog clock time',
             options: [
                 {
@@ -52,9 +61,8 @@ let actions = {
                     range: false
                 }
             ],
-        },
-
-        'preset': {
+        };
+        actions['preset'] = {
             label: 'Set preset time',
             options: [
                 {
@@ -91,8 +99,12 @@ let actions = {
                     range: false
                 }
             ],
-        },
+        };
+
+        return actions;
     },
+
+
     doAction(action) {
         let oscAddress = '';
         let oscArgs = [];
@@ -101,30 +113,29 @@ let actions = {
             case "control":
                 let controlType = action.options.control;
                 oscAddress = `/octocue/clock/${controlType}`;
-                type='osc';
+                type = 'osc';
                 break;
             case "visibility":
                 oscAddress = `/octocue/clock/${action.options.action}`;
-                type='osc';
+                type = 'osc';
                 break;
             case "jog":
                 oscAddress = `/octocue/clock/jog`;
-                type='osc';
-                oscArgs = [ { type: 'i', value: action.options.seconds } ]
+                type = 'osc';
+                oscArgs = [{ type: 'i', value: action.options.seconds }]
                 break;
             case "preset":
                 oscAddress = `/octocue/clock/preset`;
-                type='osc';
+                type = 'osc';
                 const presetSeconds = (action.options.hours * 3600) + (action.options.minutes * 60) + action.options.seconds;
-                oscArgs = [{ type: 'i', value: presetSeconds } ]
+                oscArgs = [{ type: 'i', value: presetSeconds }]
                 break;
-            break; 
+                break;
             default:
             //not known
         }
-        return {type: type, address: oscAddress, args: oscArgs};
+        return { type: type, address: oscAddress, args: oscArgs };
     }
+
+
 }
-
-
-module.exports = actions;
