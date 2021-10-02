@@ -1,0 +1,21 @@
+{
+  "name": "octocue-clicker",
+  "version": "1.0.0",
+  "api_version": "1.0.0",
+  "keywords": [
+    "PowerPoint"
+  ],
+  "manufacturer": "OctoCue",
+  "product": "Presentation remote",
+  "shortname": "OctoCue Presentation Remote",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Nick Roberts",
+  "license": "MIT",
+  "dependencies": {
+    "osc": "^2.4.2"
+  }
+}
